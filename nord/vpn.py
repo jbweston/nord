@@ -61,7 +61,7 @@ async def start(config, username, password):
     cmd = ['sudo', '-n', OPENVPN_EXECUTABLE,
            '--suppress-timestamps',
            '--config', config_file.name,
-           '--auth-user-pass', credentials_file.name
+           '--auth-user-pass', credentials_file.name,
           ]
 
     proc = None

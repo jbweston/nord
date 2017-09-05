@@ -30,6 +30,8 @@ def silence(*exceptions_to_silence):
 
     this is a coroutine decorator.
     """
+
+    # pylint: disable=missing-docstring
     async def wrapper(func, *args, **kwargs):
         try:
             return await func(*args, **kwargs)
@@ -47,6 +49,7 @@ def async_lru_cache(size=float('inf')):
     """LRU cache for coroutines."""
     cache = OrderedDict()
 
+    # pylint: disable=missing-docstring
     async def memoized(func, *args, **kwargs):
         key = str((args, kwargs))
         if key not in cache:
@@ -106,6 +109,7 @@ async def lock_subprocess(*args, lockfile, **kwargs):
     file.write(str(os.getpid()))  # write pid to lockfile
     file.flush()
 
+    # pylint: disable=missing-docstring
     def unlock(*_):
         fcntl.flock(file, fcntl.LOCK_UN)
         file.truncate(0)
