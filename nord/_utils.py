@@ -49,9 +49,7 @@ def async_lru_cache(size=float('inf')):
 
     async def memoized(func, *args, **kwargs):
         key = str((args, kwargs))
-        try:
-            cache[key] = cache.pop(key)
-        except KeyError:
+        if key not in cache:
             if len(cache) >= size:
                 cache.popitem(last=False)
             cache[key] = await func(*args, **kwargs)
