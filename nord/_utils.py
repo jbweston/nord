@@ -1,0 +1,148 @@
+# -*- coding: utf-8 -*-
+#
+# copyright 2017 joseph weston
+#
+# this program is free software: you can redistribute it and/or modify
+# it under the terms of the gnu general public license as published by
+# the free software foundation, either version 3 of the license, or
+# (at your option) any later version.
+#
+# this program is distributed in the hope that it will be useful,
+# but without any warranty; without even the implied warranty of
+# merchantability or fitness for a particular purpose.  see the
+# gnu general public license for more details.
+#
+# you should have received a copy of the gnu general public license
+# along with this program.  if not, see <http://www.gnu.org/licenses/>.
+"""Miscellaneous utilities."""
+
+import os
+import fcntl
+import tempfile
+import asyncio
+from collections import OrderedDict
+
+from decorator import decorator
+
+
+def silence(*exceptions_to_silence):
+    """Catch and discard selected exception types.
+
+    this is a coroutine decorator.
+    """
+    async def wrapper(func, *args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as error:
+            if not isinstance(error, exceptions_to_silence):
+                raise
+
+    return decorator(wrapper)
+
+
+# Created by Github user 'jaredlunde':
+# https://gist.github.com/jaredlunde/7a118c03c3e9b925f2bf
+# with minor modifications.
+def async_lru_cache(size=float('inf')):
+    """LRU cache for coroutines."""
+    cache = OrderedDict()
+
+    async def memoized(func, *args, **kwargs):
+        key = str((args, kwargs))
+        try:
+            cache[key] = cache.pop(key)
+        except KeyError:
+            if len(cache) >= size:
+                cache.popitem(last=False)
+            cache[key] = await func(*args, **kwargs)
+        return cache[key]
+
+    return decorator(memoized)
+
+
+def write_to_tmp(content):
+    """Write text content to a temporary file a return a handle to it."""
+    tmp = tempfile.NamedTemporaryFile(mode='w+t')
+    tmp.write(content)
+    tmp.flush()
+    return tmp
+
+
+def _secure_opener(path, flags):
+    return os.open(path, flags, mode=0o600)
+
+
+class LockError(BlockingIOError):
+    """Exception raised on failure to acquire a file lock/"""
+    pass
+
+
+async def lock_subprocess(*args, lockfile, **kwargs):
+    """Acquire a lock for launching a subprocess.
+
+    Acquires a lock on a lockfile, launches a subprocess
+    and schedules unlocking the lockfile for when the
+    subprocess is dead.
+
+    Parameters
+    ----------
+    *args, **kwargs
+        Arguments to pass to 'asyncio.subprocess.create_subprocess_exec'.
+    lockfile : str
+        Filename of the lockfile.
+
+    Returns
+    -------
+    proc : asyncio.subprocess.Process
+
+    Raises
+    ------
+    LockError if the lock could not be acquired.
+    """
+
+    file = open(lockfile, 'w', opener=_secure_opener)
+    try:
+        fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as error:
+        raise LockError(lockfile) from error
+    file.write(str(os.getpid()))  # write pid to lockfile
+    file.flush()
+
+    def unlock(*_):
+        fcntl.flock(file, fcntl.LOCK_UN)
+        file.truncate(0)
+        file.close()
+
+    try:
+        proc = await asyncio.create_subprocess_exec(*args, **kwargs)
+    except:
+        unlock()
+        raise
+    else:
+        when_dead = asyncio.ensure_future(proc.wait())
+        when_dead.add_done_callback(unlock)
+
+    return proc
+
+
+@silence(ProcessLookupError)
+async def kill_process(proc, timeout=None):
+    """Terminate a process as gracefully as possible.
+
+    sends sigterm and follows up with a sigkill if the process is not
+    dead after 'timeout' seconds, and flushes stdout and stderr
+    by calling 'proc.communicate()'.
+
+    Parameters
+    ----------
+    proc : asyncio.subprocess.process
+    timeout : int
+    """
+    try:
+        proc.terminate()
+        await asyncio.wait_for(proc.wait(), timeout)
+    except asyncio.TimeoutError:  # process didn't die in time
+        proc.kill()
+    finally:
+        # flush buffers
+        await proc.communicate()
