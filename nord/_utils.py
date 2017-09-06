@@ -42,6 +42,15 @@ def silence(*exceptions_to_silence):
     return decorator(wrapper)
 
 
+@decorator
+def run_sync(func, *args, **kwargs):
+    """Run the decorated coroutine synchronouslyin the default event loop.
+
+    This decordator converts an async function to a regular function.
+    """
+    return asyncio.get_event_loop().run_until_complete(func(*args, **kwargs))
+
+
 # Created by Github user 'jaredlunde':
 # https://gist.github.com/jaredlunde/7a118c03c3e9b925f2bf
 # with minor modifications.
@@ -148,3 +157,21 @@ async def kill_process(proc, timeout=None):
     finally:
         # flush buffers
         await proc.communicate()
+
+
+async def sudo_requires_password():
+    """Return True if 'sudo' requires a password to run."""
+    proc = await asyncio.create_subprocess_exec(
+        'sudo', '-n', '-v',
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL)
+    await proc.wait()
+    return proc.returncode != 0
+
+
+async def prompt_for_sudo():
+    """Run 'sudo' to prompt the user for their password."""
+    proc = await asyncio.create_subprocess_exec('sudo', '-v')
+    await proc.wait()
+    if proc.returncode != 0:
+        raise PermissionError
