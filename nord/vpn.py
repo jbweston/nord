@@ -137,10 +137,10 @@ async def supervise(proc):
 
 
 async def run(config, username, password):
-    """Run an OpenVPN client until it dies.
+    """Run an OpenVPN client until it dies and return the exit code.
 
     A description of the parameters can be found
     in the documentation for `start`.
     """
     proc = await start(config, username, password)
-    await supervise(proc)
+    return await supervise(proc)
