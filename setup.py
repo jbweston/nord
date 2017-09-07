@@ -19,12 +19,23 @@ from setuptools import setup
 
 import versioneer
 
-with open('requirements.txt') as r:
-    requirements = [l.strip() for l in r.readlines()]
+
+requirements = [
+    'decorator',
+    'structlog',
+    'aiohttp',
+]
+
+dev_requirements = [
+    'pylint',
+]
 
 setup(
     name='nord',
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
     install_requires=requirements,
+    extras_require={
+        'dev': dev_requirements,
+    },
 )
