@@ -17,12 +17,14 @@
 
 from setuptools import setup
 
+import versioneer
+
 with open('requirements.txt') as r:
     requirements = [l.strip() for l in r.readlines()]
 
 setup(
     name='nord',
-    version='0.1',
-    py_modules=['nord'],
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     install_requires=requirements,
 )
