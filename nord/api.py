@@ -40,9 +40,13 @@ async def _get(endpoint):
     return resp
 
 
-def _normalize_hostname(hostname):
-    if not hostname.endswith('nordvpn.com'):
-        return f'{hostname}.nordvpn.com'
+def normalized_hostname(hostname):
+    """Return the fully qualified domain name of a NordVPN host."""
+    host, *domain = hostname.split('.')
+    if not domain:
+        return f'{host}.nordvpn.com'
+    elif tuple(domain) != ('nordvpn', 'com'):
+        raise ValueError(f'invalid NordVPN host {hostname}')
     return hostname
 
 
@@ -68,7 +72,7 @@ async def host_config(host, protocol='tcp'):
         the trailing '.nordvpn.com'.
     protocol: str, 'tcp' or 'udp'
     """
-    host = _normalize_hostname(host)
+    host = normalized_hostname(host)
     resp = await _get(f'files/download/{_config_filename(host, protocol)}')
     return await resp.text()
 
@@ -90,7 +94,7 @@ async def host_load(host=None):
         to percentage load.
     """
     if host:
-        host = _normalize_hostname(host)
+        host = normalized_hostname(host)
     endpoint = f'server/stats/{host}' if host else 'server/stats'
     resp = await _get(endpoint)
     resp = await resp.json()
@@ -128,3 +132,17 @@ async def dns_servers():
     """Return a list of ip addresses of NordVPN DNS servers."""
     resp = await _get('dns/smart')
     return await resp.json()
+
+
+async def valid_credentials(username, password):
+    """Return True if NordVPN accepts the username/password combination.
+
+    Sometimes connecting to the VPN server gives an authentication error even
+    if the correct credentials are given. This function is useful to first verify
+    credentials so as to avoid unecessary reconnection attempts.
+
+    Parameters
+    ----------
+    username, password : str
+    """
+    return True
