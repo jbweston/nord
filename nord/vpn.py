@@ -20,7 +20,7 @@ import asyncio
 
 from structlog import get_logger
 
-from ._utils import write_to_tmp, lock_subprocess, kill_process
+from ._utils import write_to_tmp, lock_subprocess, kill_process, require_root
 
 
 OPENVPN_EXECUTABLE = '/usr/sbin/openvpn'
@@ -28,6 +28,7 @@ LOCKFILE = '/run/lock/nordvpn.lockfile'
 _OPENVPN_UP = b'Initialization Sequence Completed'
 
 
+@require_root
 async def start(config, username, password):
     """Start an OpenVPN client with the given configuration.
 
@@ -44,8 +45,9 @@ async def start(config, username, password):
 
     Raises
     ------
+    PermissionError if we cannot use 'sudo' without a password.
     RuntimeError if the OpenVPN process does not start correctly.
-    LockError if a lock could not be obtained for the lockfile
+    LockError if a lock could not be obtained for the lockfile.
 
     Notes
     -----

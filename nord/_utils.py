@@ -159,6 +159,15 @@ async def kill_process(proc, timeout=None):
         await proc.communicate()
 
 
+@decorator
+async def require_root(func, *args, **kwargs):
+    """Raise PermissionError if 'sudo' cannot be used without a password."""
+    if (await sudo_requires_password()):
+        raise PermissionError('sudo requires a password')
+    else:
+        return await func(*args, **kwargs)
+
+
 async def sudo_requires_password():
     """Return True if 'sudo' requires a password to run."""
     proc = await asyncio.create_subprocess_exec(
@@ -174,4 +183,4 @@ async def prompt_for_sudo():
     proc = await asyncio.create_subprocess_exec('sudo', '-v')
     await proc.wait()
     if proc.returncode != 0:
-        raise PermissionError
+        raise PermissionError('sudo requires a password')
