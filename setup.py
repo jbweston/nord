@@ -30,6 +30,15 @@ dev_requirements = [
     'pylint',
 ]
 
+classifiers =[
+    'Development Status :: 2 - Pre-Alpha',
+    'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+    'Operating System :: POSIX :: Linux',
+    'Programming Language :: Python :: 3.6',
+    'Intended Audience :: End Users/Desktop',
+    'Intended Audience :: Developers',
+]
+
 setup(
     name='nord',
     version=versioneer.get_version(),
