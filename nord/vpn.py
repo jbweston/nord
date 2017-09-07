@@ -138,11 +138,26 @@ async def supervise(proc):
     return proc.returncode
 
 
-async def run(config, username, password):
+@require_root
+async def run(config, username, password, dns_servers=()):
     """Run an OpenVPN client until it dies and return the exit code.
 
-    A description of the parameters can be found
-    in the documentation for `start`.
+    Optionally provide DNS servers that will replace the contents
+    of '/etc/resolv.conf' for the duration of the client.
+
+    Parameters
+    ----------
+    config : str
+        The contents of the OpenVPN config file.
+    username, password : str
+        Credentials for the OpenVPN connection.
+    dns_servers : tuple of str, optional
+        IP addresses of DNS servers with which to populate
+        '/etc/resolv.conv' when the VPN is up.
     """
     proc = await start(config, username, password)
-    return await supervise(proc)
+    if not dns_servers:
+        return await supervise(proc)
+    else:
+        with replace_contents('/etc/resolv.conf', '\n'.join(dns_servers)):
+            return await supervise(proc)

@@ -136,6 +136,27 @@ async def lock_subprocess(*args, lockfile, **kwargs):
     return proc
 
 
+@contextmanager
+def replace_contents(filename, contents):
+    """Context manager that replaces a file's contents and restores it on exit.
+
+    Parameters
+    ----------
+    filename, contents : str
+    """
+    file = open(filename, 'r+')
+    saved_contents = file.read()
+    file.truncate(0)
+    try:
+        file.write(contents)
+        file.flush()
+        yield
+    finally:
+        file.truncate(0)
+        file.write(saved_contents)
+        file.close()
+
+
 @silence(ProcessLookupError)
 async def kill_process(proc, timeout=None):
     """Terminate a process as gracefully as possible.
