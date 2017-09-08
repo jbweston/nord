@@ -19,6 +19,7 @@
 This module contains a single class, `Client`, which encapsulates
 all the methods provided by NordVPN.
 """
+from hashlib import sha512
 
 import aiohttp
 
@@ -158,14 +159,24 @@ class Client:
 
 
     async def valid_credentials(self, username, password):
-        """Return True if NordVPN accepts the username/password combination.
+        """Return True if NordVPN accepts the username and password.
 
-        Sometimes connecting to the VPN server gives an authentication error even
-        if the correct credentials are given. This function is useful to first verify
-        credentials so as to avoid unecessary reconnection attempts.
+        Sometimes connecting to the VPN server gives an authentication
+        error even if the correct credentials are given. This function
+        is useful to first verify credentials so as to avoid unecessary
+        reconnection attempts.
 
         Parameters
         ----------
         username, password : str
         """
-        return True
+        resp = await self._get('token/token/{username}')
+        resp = await resp.json()
+        token, salt, key = (resp[k] for k in ['token', 'salt', 'key'])
+
+        round1 = sha512(salt.encode() + password.encode())
+        round2 = sha512(round1.hexdigest().encode() + key.encode())
+        response = round2.hexdigest()
+
+        resp = await self._get(f'token/verify/{token}/{response}')
+        return await resp.json()
