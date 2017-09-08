@@ -24,7 +24,6 @@ requirements = [
     'decorator',
     'structlog',
     'aiohttp',
-    'asyncio-extras',
 ]
 
 dev_requirements = [

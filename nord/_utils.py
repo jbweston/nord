@@ -19,14 +19,17 @@
 import os
 import fcntl
 import tempfile
+import functools as ft
 import asyncio
 from asyncio.subprocess import PIPE, DEVNULL
+from asyncio import create_subprocess_exec as subprocess
 from collections import OrderedDict
 from pathlib import Path
 
-from asyncio_extras.contextmanager import async_contextmanager
 from decorator import decorator
 
+
+# Generic utilities
 
 def silence(*exceptions_to_silence):
     """Catch and discard selected exception types.
@@ -43,6 +46,39 @@ def silence(*exceptions_to_silence):
                 raise
 
     return decorator(wrapper)
+
+
+class MultiError(Exception):
+    """Combine several exceptions"""
+    def __init__(self, *exceptions):
+        super().__init__()
+        self.children = exceptions
+
+    def __str__(self):
+        return ','.join(repr(c) for c in self.children)
+
+
+class multi_context:  # pylint: disable=invalid-name,too-few-public-methods
+    """Async context manager that manages several child contexts."""
+
+    def __init__(self, *managers):
+        self.managers = managers
+
+    async def __aenter__(self):
+        futures = [asyncio.ensure_future(m.__aenter__())
+                   for m in self.managers]
+        await asyncio.wait(futures)  # make sure all are run to completion
+        exceptions = [f.exception() for f in futures if f.exception()]
+        if exceptions:
+            first_exception, *other_exceptions = exceptions
+            if not other_exceptions:
+                raise first_exception
+            else:
+                MultiError(first_exception, *other_exceptions)
+
+    async def __aexit__(self, *exc_details):
+        futures = [m.__aexit__(*exc_details) for m in self.managers]
+        await asyncio.wait(futures)  # make sure all are run to completion
 
 
 @decorator
@@ -81,9 +117,139 @@ def write_to_tmp(content):
     return tmp
 
 
-def _secure_opener(path, flags):
-    return os.open(path, flags, mode=0o600)
+# Sudo-related functions
 
+async def sudo_requires_password():
+    """Return True if 'sudo' requires a password to run."""
+    proc = await subprocess('sudo', '-n', '-v', stdout=DEVNULL, stderr=DEVNULL)
+    await proc.wait()
+    return proc.returncode != 0
+
+
+async def prompt_for_sudo():
+    """Run 'sudo' to prompt the user for their password."""
+    proc = await subprocess('sudo', '-v')
+    await proc.wait()
+    if proc.returncode != 0:
+        raise PermissionError('sudo requires a password')
+
+@decorator
+async def require_sudo(func, *args, **kwargs):
+    """Raise PermissionError if 'sudo' cannot be used without a password."""
+    if await sudo_requires_password():
+        raise PermissionError('sudo requires a password')
+    else:
+        return await func(*args, **kwargs)
+
+
+class maintain_sudo:  # pylint: disable=invalid-name,too-few-public-methods
+    """Run 'sudo -v' every 'timeout' seconds to maintain cached credentials."""
+
+    def __init__(self, timeout=600):
+        self.timeout = timeout
+        self.maintainer = None
+
+    async def __aenter__(self):
+        if await sudo_requires_password():
+            raise PermissionError('sudo requires password')
+
+        async def maintainer():  # pylint: disable=missing-docstring
+            while True:
+                await asyncio.wait([prompt_for_sudo(),
+                                    asyncio.sleep(self.timeout)])
+
+        self.maintainer = asyncio.ensure_future(maintainer())
+
+    async def __aexit__(self, *exc_info):
+        self.maintainer.cancel()
+        await self.maintainer
+
+
+# Functions requiring sudo
+
+@silence(ProcessLookupError)
+@require_sudo
+async def kill_root_process(proc, timeout=None):
+    """Terminate a process owned by root as gracefully as possible.
+
+    sends sigterm and follows up with a sigkill if the process is not
+    dead after 'timeout' seconds, and flushes stdout and stderr
+    by calling 'proc.communicate()'.
+
+    Parameters
+    ----------
+    proc : asyncio.subprocess.process
+    timeout : int
+    """
+    kill_cmd = ['sudo', '-n', 'kill']
+    pid = str(proc.pid)
+    try:
+        killer = await subprocess(*kill_cmd, pid, stdout=DEVNULL,
+                                  stderr=DEVNULL)
+        await killer.wait()
+        await asyncio.wait_for(proc.wait(), timeout)
+    except asyncio.TimeoutError:  # process didn't die in time
+        killer = await subprocess(*kill_cmd, '-9', pid, stdout=DEVNULL,
+                                  stderr=DEVNULL)
+        await killer.wait()
+    finally:
+        # flush buffers
+        await proc.communicate()
+
+
+class replace_content_as_root:
+    # pylint: disable=invalid-name,too-few-public-methods
+    """Context manager that replaces a file's content and restores it on exit.
+
+    This context manager uses subprocesses and 'sudo' with 'cat' and 'tee'
+    to write the files, to avoid giving root permissions to *this* process.
+
+    Parameters
+    ----------
+    path, content : str
+
+    Raises
+    ------
+    FileNotFoundError if no file exists at 'path'
+    PermissionError if 'sudo' cannot be used without a password.
+    RuntimeError if we were unable to read or write the file at 'path'
+    """
+
+    def __init__(self, path, content):
+        self.path = str(Path(path).resolve())
+        self.content = content.encode()
+        self.saved_content = None
+        self._write_content = ['sudo', '-n', 'tee', self.path]
+        self._read_content = ['sudo', '-n', 'cat', self.path]
+
+    async def __aenter__(self):
+        # can't use 'require_sudo' decorator as this is an async generator.
+        if await sudo_requires_password():
+            raise PermissionError('sudo requires a password')
+
+        # get existing content from file
+        proc = await subprocess(*self._read_content, stdout=PIPE, stderr=PIPE)
+        self.saved_content, errors = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(errors.decode())
+
+        # write temporary content to file
+        proc = await subprocess(*self._write_content, stdout=DEVNULL,
+                                stderr=PIPE, stdin=PIPE)
+        _, errors = await proc.communicate(self.content)
+        if proc.returncode != 0:
+            raise RuntimeError(errors.decode())
+
+    async def __aexit__(self, *exc_info):
+        # restore saved content
+        proc = await subprocess(*self._write_content, stdout=DEVNULL,
+                                stderr=PIPE, stdin=PIPE)
+        _, errors = await proc.communicate(self.saved_content)
+        if proc.returncode != 0:
+            raise RuntimeError(errors.decode())
+
+
+# File locking
 
 class LockError(BlockingIOError):
     """Exception raised on failure to acquire a file lock/"""
@@ -113,7 +279,7 @@ async def lock_subprocess(*args, lockfile, **kwargs):
     LockError if the lock could not be acquired.
     """
 
-    file = open(lockfile, 'w', opener=_secure_opener)
+    file = open(lockfile, 'w', opener=ft.partial(os.open, mode=0o600))
     try:
         fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError as error:
@@ -128,7 +294,7 @@ async def lock_subprocess(*args, lockfile, **kwargs):
         file.close()
 
     try:
-        proc = await asyncio.create_subprocess_exec(*args, **kwargs)
+        proc = await subprocess(*args, **kwargs)
     except:
         unlock()
         raise
@@ -137,105 +303,3 @@ async def lock_subprocess(*args, lockfile, **kwargs):
         when_dead.add_done_callback(unlock)
 
     return proc
-
-
-@silence(ProcessLookupError)
-async def kill_process(proc, timeout=None):
-    """Terminate a process as gracefully as possible.
-
-    sends sigterm and follows up with a sigkill if the process is not
-    dead after 'timeout' seconds, and flushes stdout and stderr
-    by calling 'proc.communicate()'.
-
-    Parameters
-    ----------
-    proc : asyncio.subprocess.process
-    timeout : int
-    """
-    try:
-        proc.terminate()
-        await asyncio.wait_for(proc.wait(), timeout)
-    except asyncio.TimeoutError:  # process didn't die in time
-        proc.kill()
-    finally:
-        # flush buffers
-        await proc.communicate()
-
-
-@decorator
-async def require_root(func, *args, **kwargs):
-    """Raise PermissionError if 'sudo' cannot be used without a password."""
-    if (await sudo_requires_password()):
-        raise PermissionError('sudo requires a password')
-    else:
-        return await func(*args, **kwargs)
-
-
-async def sudo_requires_password():
-    """Return True if 'sudo' requires a password to run."""
-    proc = await asyncio.create_subprocess_exec(
-        'sudo', '-n', '-v',
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL)
-    await proc.wait()
-    return proc.returncode != 0
-
-
-async def prompt_for_sudo():
-    """Run 'sudo' to prompt the user for their password."""
-    proc = await asyncio.create_subprocess_exec('sudo', '-v')
-    await proc.wait()
-    if proc.returncode != 0:
-        raise PermissionError('sudo requires a password')
-
-
-@async_contextmanager
-@require_root
-async def replace_content_as_root(path, content):
-    """Context manager that replaces a file's content and restores it on exit.
-
-    This context manager uses subprocesses and 'sudo' with 'cat' and 'tee'
-    to write the files, to avoid giving root permissions to *this* process.
-
-    Parameters
-    ----------
-    path, content : str
-
-    Raises
-    ------
-    FileNotFoundError if no file exists at 'path'
-    PermissionError if 'sudo' cannot be used without a password.
-    RuntimeError if we were unable to read or write the file at 'path'
-    """
-
-    # get existing content from file
-    path = Path(path).resolve()
-    get_content = ['sudo', '-n', 'cat',  path]
-    proc = await asyncio.create_subprocess_exec(*get_content,
-                                                stdout=PIPE, stderr=PIPE)
-    saved_content, errors = await proc.communicate()
-    if proc.returncode != 0:
-        raise RuntimeError(errors.decode())
-
-    # write temporary content to file
-    write_content = ['sudo', '-n', 'tee', path]
-    proc = await asyncio.create_subprocess_exec(*write_content,
-                                                stdout=DEVNULL, stderr=PIPE,
-                                                stdin=PIPE)
-    _, errors = await proc.communicate(content.encode())
-    if proc.returncode != 0:
-        raise RuntimeError(errors.decode())
-
-    try:
-        yield
-    finally:
-        # restore saved content
-        proc = await asyncio.create_subprocess_exec(*write_content,
-                                                    stdout=DEVNULL,
-                                                    stderr=PIPE,
-                                                    stdin=PIPE)
-        _, errors = await proc.communicate(saved_content)
-        if proc.returncode != 0:
-            raise RuntimeError(errors.decode())
-
-

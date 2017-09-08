@@ -20,8 +20,9 @@ import asyncio
 
 from structlog import get_logger
 
-from ._utils import (write_to_tmp, lock_subprocess, kill_process,
-                     require_root, replace_content_as_root)
+from ._utils import (write_to_tmp, lock_subprocess, kill_root_process,
+                     require_sudo, maintain_sudo, multi_context,
+                     replace_content_as_root)
 
 
 OPENVPN_EXECUTABLE = '/usr/sbin/openvpn'
@@ -29,7 +30,7 @@ LOCKFILE = '/run/lock/nordvpn.lockfile'
 _OPENVPN_UP = b'Initialization Sequence Completed'
 
 
-@require_root
+@require_sudo
 async def start(config, username, password):
     """Start an OpenVPN client with the given configuration.
 
@@ -87,7 +88,7 @@ async def start(config, username, password):
     except Exception:
         logger.error('failed to start')
         if proc:
-            await asyncio.shield(kill_process(proc))
+            await asyncio.shield(kill_root_process(proc))
         raise
 
     finally:
@@ -133,13 +134,13 @@ async def supervise(proc):
         logger.warn('unexpected exit', return_code=proc.returncode)
     finally:
         logger.debug('cleaning up process')
-        await asyncio.shield(kill_process(proc))
+        await asyncio.shield(kill_root_process(proc))
         logger.info('down')
 
     return proc.returncode
 
 
-@require_root
+@require_sudo
 async def run(config, username, password, dns_servers=()):
     """Run an OpenVPN client until it dies and return the exit code.
 
@@ -156,10 +157,15 @@ async def run(config, username, password, dns_servers=()):
         IP addresses of DNS servers with which to populate
         '/etc/resolv.conv' when the VPN is up.
     """
-    proc = await start(config, username, password)
-    if not dns_servers:
+    # While OpenVPN is running we need to maintain the cached sudo
+    # credentials, otherwise they will time out after 15 minutes or so
+    # and we will not be able to kill the OpenVPN process.
+    context = [maintain_sudo()]
+    if dns_servers:
+        dns_servers = ['nameserver ' + server for server in dns_servers]
+        context.append(replace_content_as_root('/etc/resolv.conf',
+                                               '\n'.join(dns_servers)))
+
+    async with multi_context(*context):
+        proc = await start(config, username, password)
         return await supervise(proc)
-    else:
-        async with replace_contents_as_root('/etc/resolv.conf',
-                                            '\n'.join(dns_servers)):
-            return await supervise(proc)
