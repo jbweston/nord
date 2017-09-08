@@ -79,9 +79,15 @@ class Client:
     async def __aexit__(self, exc_typ, exc, traceback):
         self.close()
 
-    async def _get(self, endpoint):
-        return self._session.get(''.join(self.api_url, endpoint),
-                                 headers=self.headers)
+    async def _get_json(self, endpoint):
+        url = ''.join((self.api_url, endpoint))
+        async with self._session.get(url, headers=self.headers) as resp:
+            return await resp.json()
+
+    async def _get_text(self, endpoint):
+        url = ''.join((self.api_url, endpoint))
+        async with self._session.get(url, headers=self.headers) as resp:
+            return await resp.text()
 
     # API methods
 
@@ -97,8 +103,8 @@ class Client:
         protocol: str, 'tcp' or 'udp'
         """
         host = normalized_hostname(host)
-        resp = await self._get(f'files/download/{_config_filename(host, protocol)}')
-        return await resp.text()
+        endpoint = f'files/download/{_config_filename(host, protocol)}'
+        return await self._get_text(endpoint)
 
 
     async def host_load(self, host=None):
@@ -120,8 +126,7 @@ class Client:
         if host:
             host = normalized_hostname(host)
         endpoint = f'server/stats/{host}' if host else 'server/stats'
-        resp = await self._get(endpoint)
-        resp = await resp.json()
+        resp = await self._get_json(endpoint)
         if host:
             if len(resp) != 1:
                 # Nord API returns load on all hosts if 'host' does not exist.
@@ -133,8 +138,7 @@ class Client:
 
     async def current_ip(self):
         """Return our current public IP address, as detected by NordVPN."""
-        resp = await self._get('user/address')
-        return await resp.text()
+        return await self._get_text('user/address')
 
 
     @async_lru_cache()
@@ -146,16 +150,14 @@ class Client:
         host_info : (dict: str → dict)
             A map from hostnames to host info dictionaries.
         """
-        resp = await self._get('server')
-        info = await resp.json()
+        info = await self._get_json('server')
         return {h['domain']: h for h in info}
 
 
     @async_lru_cache()
     async def dns_servers(self):
         """Return a list of ip addresses of NordVPN DNS servers."""
-        resp = await self._get('dns/smart')
-        return await resp.json()
+        return await self._get_json('dns/smart')
 
 
     async def valid_credentials(self, username, password):
@@ -170,13 +172,11 @@ class Client:
         ----------
         username, password : str
         """
-        resp = await self._get('token/token/{username}')
-        resp = await resp.json()
+        resp = await self._get_json(f'token/token/{username}')
         token, salt, key = (resp[k] for k in ['token', 'salt', 'key'])
 
         round1 = sha512(salt.encode() + password.encode())
         round2 = sha512(round1.hexdigest().encode() + key.encode())
         response = round2.hexdigest()
 
-        resp = await self._get(f'token/verify/{token}/{response}')
-        return await resp.json()
+        return await self._get_json(f'token/verify/{token}/{response}')
