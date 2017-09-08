@@ -172,11 +172,26 @@ class Client:
         ----------
         username, password : str
         """
-        resp = await self._get_json(f'token/token/{username}')
+        try:
+            resp = await self._get_json(f'token/token/{username}')
+        except aiohttp.ClientResponseError as error:
+            # If the username is incorrect the Nord API returns at 200
+            # response, but the mimetype is set to HTML. lol.
+            if error.code == 0 and 'unexpected mimetype' in error.message:
+                return False
+            else:
+                raise
+
         token, salt, key = (resp[k] for k in ['token', 'salt', 'key'])
 
         round1 = sha512(salt.encode() + password.encode())
         round2 = sha512(round1.hexdigest().encode() + key.encode())
         response = round2.hexdigest()
 
-        return await self._get_json(f'token/verify/{token}/{response}')
+        try:
+            return await self._get_json(f'token/verify/{token}/{response}')
+        except aiohttp.ClientResponseError as error:
+            if error.code == 401:
+                return False
+            else:
+                raise
