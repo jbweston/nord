@@ -20,7 +20,8 @@ import asyncio
 
 from structlog import get_logger
 
-from ._utils import write_to_tmp, lock_subprocess, kill_process, require_root
+from ._utils import (write_to_tmp, lock_subprocess, kill_process,
+                     require_root, replace_content_as_root)
 
 
 OPENVPN_EXECUTABLE = '/usr/sbin/openvpn'
@@ -159,5 +160,6 @@ async def run(config, username, password, dns_servers=()):
     if not dns_servers:
         return await supervise(proc)
     else:
-        with replace_contents('/etc/resolv.conf', '\n'.join(dns_servers)):
+        async with replace_contents_as_root('/etc/resolv.conf',
+                                            '\n'.join(dns_servers)):
             return await supervise(proc)
