@@ -41,12 +41,24 @@ classifiers =[
     'Programming Language :: Python :: 3.6',
     'Intended Audience :: End Users/Desktop',
     'Intended Audience :: Developers',
+    'Topic :: Utilities',
 ]
+
+with open('README.rst') as readme_file:
+    long_description = readme_file.read()
 
 setup(
     name='nord',
+    author='Joseph Weston',
+    author_email='joseph@weston.cloud',
+    description='Unofficial NordVPN client',
+    license='GNU General Public License v3',
     version=versioneer.get_version(),
+    url='https://github.com/jbweston/nord',
     cmdclass=versioneer.get_cmdclass(),
+    platforms=['GNU/Linux'],
+    packages=['nord'],
+    long_description=long_description,
     install_requires=requirements,
     extras_require={
         'dev': dev_requirements,

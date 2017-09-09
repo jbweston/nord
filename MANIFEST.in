@@ -1,2 +1,2 @@
 include versioneer.py
-include nord/_version.py
+include LICENSE

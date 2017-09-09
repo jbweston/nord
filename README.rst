@@ -1,7 +1,5 @@
-``nord``: NordVPN client
-========================
-
-**This package is a work in progress -- it is not in a usable state***
+Nord: an unofficial NordVPN client
+==================================
 
 .. doc-start
 
