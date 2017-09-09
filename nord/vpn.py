@@ -73,8 +73,17 @@ async def start(config, username, password):
           ]
 
     proc = None
+
+    # detach the child from the current process group so as to
+    # avoid signals destined for *this* process.
+    # *we* handle signals properly with 'kill_root_process'
+    def protect_child():  # pylint: disable=missing-docstring
+        import os
+        os.setpgrp()
+
     try:
         proc = await lock_subprocess(*cmd, stdout=asyncio.subprocess.PIPE,
+                                     preexec_fn=protect_child,
                                      lockfile=LOCKFILE)
         logger = logger.bind(pid=proc.pid)
 
