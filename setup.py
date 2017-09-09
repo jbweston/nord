@@ -29,6 +29,9 @@ requirements = [
 
 dev_requirements = [
     'pylint',
+    'sphinx',
+    'sphinx-autobuild',
+    'sphinx-rtd-theme',
 ]
 
 classifiers =[

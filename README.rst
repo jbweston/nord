@@ -3,15 +3,24 @@
 
 **This package is a work in progress -- it is not in a usable state***
 
+.. doc-start
+
 Overview
 --------
-Nord is a client for interacting with the `NordVPN`_
-service. At its core is a high-level Python API that supports operations such
-as connecting to the server in a given country that is most likely to give you
-the best performance. Nord also contains components that expose this API as a
-command line tool, and as a web service and a frontend.
+
+.. overview
+
+Nord is a client for interacting with the `NordVPN`_ service.
+
+At its core is a high-level Python API for interacting both with the web service
+provided by NordVPN, and for connecting to VPN servers using the OpenVPN client.
+
+Nord also contains components that expose this API as a command line tool,
+and (soon) as a web service and frontend.
 
 .. _NordVPN: https://nordvpn.com
+
+.. overview-end
 
 Licence
 -------
