@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Tools for starting and supervising OpenVPN clients."""
 
+import sys
 import asyncio
 
 from structlog import get_logger
@@ -28,6 +29,9 @@ from ._utils import (write_to_tmp, lock_subprocess, kill_root_process,
 OPENVPN_EXECUTABLE = '/usr/sbin/openvpn'
 LOCKFILE = '/run/lock/nordvpn.lockfile'
 _OPENVPN_UP = b'Initialization Sequence Completed'
+
+class OpenVPNError(RuntimeError):
+    """Errors from the OpenVPN subprocess"""
 
 
 @require_sudo
@@ -48,7 +52,7 @@ async def start(config, username, password):
     Raises
     ------
     PermissionError if we cannot use 'sudo' without a password.
-    RuntimeError if the OpenVPN process does not start correctly.
+    OpenVPNError if the OpenVPN process does not start correctly.
     LockError if a lock could not be obtained for the lockfile.
 
     Notes
@@ -82,11 +86,21 @@ async def start(config, username, password):
                 # 'readline' returned empty; stdout is closed.
                 # Even if OpenVPN is not dead, we have no way of knowing
                 # whether the connection is up or not, so we kill it anyway.
-                raise RuntimeError('OpenVPN failed to start')
-            logger.info(stdout.decode().rstrip(), stream='stdout')
+                raise OpenVPNError('OpenVPN failed to start')
+            logger.debug(stdout.decode().rstrip(), stream='stdout')
+
+    except OpenVPNError:
+        logger.debug('failed to start')
+        raise
+
+    except asyncio.CancelledError:
+        logger.debug('received cancellation while starting')
+        if proc:
+            await asyncio.shield(kill_root_process(proc))
+        raise
 
     except Exception:
-        logger.error('failed to start')
+        logger.error('unexpected exception', exc_info=sys.exc_info())
         if proc:
             await asyncio.shield(kill_root_process(proc))
         raise
@@ -95,7 +109,7 @@ async def start(config, username, password):
         config_file.close()
         credentials_file.close()
 
-    logger.info('up')
+    logger.info('up', stream='status')
 
     return proc
 
@@ -120,7 +134,7 @@ async def supervise(proc):
     try:
         stdout = await proc.stdout.readline()
         while stdout:
-            logger.info(stdout.decode().rstrip(), stream='stdout')
+            logger.debug(stdout.decode().rstrip(), stream='stdout')
             stdout = await proc.stdout.readline()
         # stdout is closed -- wait for the process to terminate
         await proc.wait()
@@ -130,12 +144,12 @@ async def supervise(proc):
         stdout, _ = await proc.communicate()
         stdout = (l.rstrip() for l in stdout.decode().split('\n'))
         for line in (l for l in stdout if l):
-            logger.info(line, stream='stdout')
+            logger.debug(line, stream='stdout')
         logger.warn('unexpected exit', return_code=proc.returncode)
     finally:
         logger.debug('cleaning up process')
         await asyncio.shield(kill_root_process(proc))
-        logger.info('down')
+        logger.info('down', stream='status')
 
     return proc.returncode
 
