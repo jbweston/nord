@@ -24,6 +24,7 @@ requirements = [
     'decorator',
     'structlog',
     'aiohttp',
+    'termcolor',
 ]
 
 dev_requirements = [
@@ -47,4 +48,8 @@ setup(
     extras_require={
         'dev': dev_requirements,
     },
+    entry_points='''
+        [console_scripts]
+        nord=nord.cli:main
+    ''',
 )
