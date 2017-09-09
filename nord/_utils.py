@@ -23,6 +23,7 @@ import functools as ft
 import asyncio
 from asyncio.subprocess import PIPE, DEVNULL
 from asyncio import create_subprocess_exec as subprocess
+from subprocess import SubprocessError
 from collections import OrderedDict
 from pathlib import Path
 
@@ -304,3 +305,37 @@ async def lock_subprocess(*args, lockfile, **kwargs):
         when_dead.add_done_callback(unlock)
 
     return proc
+
+
+async def ping(host, timeout):
+    """Return the round-trip time to a host using ICMP ECHO.
+
+    Parameters
+    ----------
+    host : str
+        The host to ping. May be a hostname, ip address, or anything else
+        recognized by 'ping'.
+    timeout : int
+        Time in seconds after which to stop waiting for a response.
+
+    Returns
+    -------
+    rtt : float
+        The average round trip time in milliseconds.
+
+    Raises
+    ------
+    SubprocessError if 'ping' returns a non-zero exit code.
+    """
+    cmd = f"/bin/ping -w{int(timeout)} {host}"
+    proc = await asyncio.create_subprocess_exec(*cmd.split(),
+                                                stdout=PIPE, stderr=DEVNULL)
+    stdout, _ = await proc.communicate()
+    if proc.returncode != 0:
+        raise SubprocessError(proc.returncode)
+
+    *_, rtt_line, _ = stdout.decode().split('\n')
+    assert _ == ''  # sanity check
+    *_, data, _ = rtt_line.split()
+    _, avg, *_ = data.split('/')
+    return float(avg)
