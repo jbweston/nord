@@ -1,6 +1,21 @@
 Nord: an unofficial NordVPN client
 ==================================
 
+.. badges-start
+
+.. image:: https://img.shields.io/badge/License-GPL%20v3-blue.svg
+   :target: https://img.shields.io/badge/License-GPL%20v3-blue.svg
+   :alt: GPLv3 License
+
+.. image:: https://badge.fury.io/py/nord.svg
+   :target: https://badge.fury.io/py/nord
+   :alt: PyPi package
+
+.. image:: https://readthedocs.org/projects/nord/badge/?version=stable
+   :target: http://nord.readthedocs.io/en/stable/?badge=stable
+   :alt: Documentation Status
+
+.. badges-end
 .. doc-start
 
 Overview
@@ -11,7 +26,7 @@ Overview
 Nord is a client for interacting with the `NordVPN`_ service.
 
 At its core is a high-level Python API for interacting both with the web service
-provided by NordVPN, and for connecting to VPN servers using the OpenVPN client.
+provided by NordVPN, and for connecting to VPN servers using OpenVPN.
 
 Nord also contains components that expose this API as a command line tool,
 and (soon) as a web service and frontend.
@@ -54,9 +69,9 @@ pass_::
 Prerequesites
 -------------
 - GNU/Linux system
+- Python 3.6
 - ``openvpn``
 - ``sudo``
-- Python 3.6
 
 nord contains many Linux-isms (e.g. using the ``sudo`` program to obtain root
 access) so it will certainly not work on Windows, it may possibly work
@@ -125,3 +140,10 @@ Developing
     virtualenv -p python3.6
     source venv/bin/activate
     pip install -e .[dev]
+
+Building the API documentation
+******************************
+::
+
+    make -C docs html
+    xdg-open docs/build/html/index.html

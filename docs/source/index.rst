@@ -1,5 +1,9 @@
-``nord``: an unofficial NordVPN client for GNU/Linux
-====================================================
+Nord: an unofficial NordVPN client for GNU/Linux
+================================================
+
+.. include:: ../../README.rst
+   :start-after: badges-start
+   :end-before: badges-end
 
 .. include:: ../../README.rst
    :start-after: overview
