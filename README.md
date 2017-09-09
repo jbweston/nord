@@ -14,6 +14,27 @@ command line tool, and as a web service and a frontend.
 Nord is licensed under the terms of the GNU GPLv3.
 See the [LICENSE](LICENSE) file for details.
 
+## Installation
+```
+pip install nord
+```
+
+## Usage
+
+Run `nord --help` for the full usage instructions.
+
+### Connect to a NordVPN server
+```
+nord connect -u my_user -p my_password us893
+```
+You can also supply your password from a file using the `-f` flag.
+The special value `-` means "read from stdin". This is particularly
+useful when your password is stored in a utility such as
+[pass](https://www.passwordstore.org/):
+```
+pass nordvpn_password | nord connect -u my_user -f - us893
+```
+
 ## Prerequesites
 + GNU/Linux system
 + `openvpn`
@@ -70,10 +91,7 @@ Both of these methods are explained in top-rated answers to this
 [stackexchange question](https://unix.stackexchange.com/questions/332641/how-to-install-python-3-6).
 
 
-## Installing
-```
-pip install nord
-```
+
 
 ## Developing
 ```
