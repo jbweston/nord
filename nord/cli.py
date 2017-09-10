@@ -38,10 +38,8 @@ class Abort(RuntimeError):
 def main():
     """Execute the nord command-line interface"""
     # parse command line arguments
-    parser = command_parser()
-    args = parser.parse_args()
-    if not args.command:
-        parser.error('no command provided')
+    args = parse_arguments()
+
     command = globals()[args.command]
 
     setup_logging(args)
@@ -111,6 +109,11 @@ def setup_logging(args):
 
     # set up stdlib logging to be the most permissive, structlog
     # will handle all filtering and formatting
+    # pylint: disable=protected-access
+    structlog.stdlib.TRACE = 5
+    structlog.stdlib._NAME_TO_LEVEL['trace'] = 5
+    structlog.stdlib._LEVEL_TO_NAME[5] = 'trace'
+    logging.addLevelName(5, "TRACE")
     logging.basicConfig(
         stream=sys.stdout,
         level=(logging.DEBUG if hasattr(args, 'debug') and args.debug
@@ -122,7 +125,7 @@ def setup_logging(args):
     logging.getLogger('asyncio').propagate = False
 
 
-def command_parser():
+def parse_arguments():
     """Return a parser for the Nord command-line interface."""
     parser = argparse.ArgumentParser('nord')
     subparsers = parser.add_subparsers(dest='command')
@@ -146,10 +149,33 @@ def command_parser():
     passwd.add_argument('-f', '--password-file', type=argparse.FileType(),
                         help='path to file containing NordVPN password')
 
-    connect_parser.add_argument('host',
-                                help='nordVPN host or fully qualified '
-                                     'domain name')
-    return parser
+    # pre-filters on the hostlist. Either specify a country or a single host
+    hosts = connect_parser.add_mutually_exclusive_group(required=True)
+
+    def _flag(country):
+        country = str(country).upper()
+        if len(country) != 2 or not str.isalpha(country):
+            raise argparse.ArgumentTypeError(
+                'must be a 2 letter country code')
+        return country
+
+    hosts.add_argument('country_code', type=_flag, nargs='?',
+                       help='2-letter country code')
+    hosts.add_argument('-s', '--server',
+                       help='nordVPN host or fully qualified domain name')
+
+    # arguments to filter the resulting hostlist
+    connect_parser.add_argument('--ping-timeout', type=int, default=2,
+                                help='ping wait time')
+    connect_parser.add_argument('--max-load', type=int, default=70,
+                                help='max load')
+
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.error('no command provided')
+
+    return args
 
 
 # Subcommands
@@ -166,31 +192,21 @@ async def connect(args):
     username = args.username
     password = args.password or args.password_file.readline().strip()
 
-    # Catch simple errors before we even make a web request
-    host = args.host
-    try:
-        host = api.normalized_hostname(host)
-    except ValueError as error:
-        raise Abort(f'{host} is not a NordVPN server')
-
     # Group requests together to reduce overall latency
-    try:
-        async with api.Client() as client:
-            output = await asyncio.gather(
-                client.valid_credentials(username, password),
-                client.host_config(host),
-                client.dns_servers(),
-                sudo_requires_password(),
-            )
-            valid_credentials, config, dns_servers, require_sudo = output
-    except aiohttp.ClientResponseError as error:
-        # The only request that can possibly 404 is 'host_config'
-        if error.code != 404:
-            raise
-        raise Abort(f'{host} is not a NordVPN server')
+    async with api.Client() as client:
+        output = await asyncio.gather(
+            _get_host_and_config(client, args),
+            client.valid_credentials(username, password),
+            client.dns_servers(),
+            sudo_requires_password(),
+        )
+    (host, config), valid_credentials, dns_servers, require_sudo = output
 
     if not valid_credentials:
         raise Abort('invalid username/password combination')
+
+    log = structlog.get_logger(__name__)
+    log.info(f"connecting to {host}")
 
     if require_sudo:
         print('sudo password required for OpenVPN')
@@ -207,3 +223,29 @@ async def connect(args):
                     'of nord running?')
     except vpn.OpenVPNError as error:
         raise Abort(str(error))
+
+
+async def _get_host_and_config(client, args):
+    # get the host
+    if args.server:
+        try:
+            hosts = [api.normalized_hostname(args.server)]
+        except ValueError as error:
+            raise Abort(f'{args.server} is not a NordVPN server')
+    else:
+        assert args.country_code
+        hosts = await client.rank_hosts(args.country_code,
+                                        args.max_load, args.ping_timeout)
+        if not hosts:
+            raise Abort('no hosts available '
+                        '(try a higher load or ping threshold?)')
+    # get the config
+    for host in hosts:
+        try:
+            config = await client.host_config(host)
+            return host, config
+        except aiohttp.ClientResponseError as error:
+            if error.code != 404:
+                raise  # unexpected error
+    # pylint: disable=undefined-loop-variable
+    raise Abort(f"config unavailable for {host}")
