@@ -166,7 +166,6 @@ class Client:
         self._log.debug("getting DNS servers")
         return await self._get_json('dns/smart')
 
-
     async def valid_credentials(self, username, password):
         """Return True if NordVPN accepts the username and password.
 

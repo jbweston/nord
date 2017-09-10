@@ -133,6 +133,7 @@ async def prompt_for_sudo():
     if proc.returncode != 0:
         raise PermissionError('sudo requires a password')
 
+
 @decorator
 async def require_sudo(func, *args, **kwargs):
     """Raise PermissionError if 'sudo' cannot be used without a password."""

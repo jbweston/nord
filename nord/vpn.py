@@ -30,6 +30,7 @@ OPENVPN_EXECUTABLE = '/usr/sbin/openvpn'
 LOCKFILE = '/run/lock/nordvpn.lockfile'
 _OPENVPN_UP = b'Initialization Sequence Completed'
 
+
 class OpenVPNError(RuntimeError):
     """Errors from the OpenVPN subprocess"""
 
@@ -87,7 +88,7 @@ async def start(config, username, password):
                                      lockfile=LOCKFILE)
         logger = logger.bind(pid=proc.pid)
 
-        # Wait until OpenVPN comes up, as indicated by a particular line in stdout
+        # Wait until OpenVPN connects, indicated by a particular line in stdout
         stdout = b''
         while _OPENVPN_UP not in stdout:
             stdout = await proc.stdout.readline()

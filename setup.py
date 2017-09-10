@@ -29,6 +29,7 @@ requirements = [
 
 dev_requirements = [
     'pylint',
+    'pep8',
     'sphinx',
     'sphinx-autobuild',
     'sphinx-rtd-theme',
