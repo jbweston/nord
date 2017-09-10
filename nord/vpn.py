@@ -156,7 +156,7 @@ async def supervise(proc):
             logger.debug(line, stream='stdout')
         logger.warn('unexpected exit', return_code=proc.returncode)
     finally:
-        logger.debug('cleaning up process')
+        logger.debug('cleaning up OpenVPN')
         await asyncio.shield(kill_root_process(proc))
         logger.info('down', stream='status')
 
