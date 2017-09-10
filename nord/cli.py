@@ -127,27 +127,37 @@ def setup_logging(args):
 
 def parse_arguments():
     """Return a parser for the Nord command-line interface."""
-    parser = argparse.ArgumentParser('nord')
+    parser = argparse.ArgumentParser(
+        'nord',
+        description='An unofficial NordVPN client')
     subparsers = parser.add_subparsers(dest='command')
 
     version = _version.get_versions()['version']
     parser.add_argument('--version', action='version',
                         version=f'nord {version}')
 
-    subparsers.add_parser('ip_address')
+    subparsers.add_parser(
+        'ip_address',
+        help="Get our public IP address, as reported by NordVPN.")
 
-    connect_parser = subparsers.add_parser('connect')
+    connect_parser = subparsers.add_parser(
+        'connect',
+        help="connect to a NordVPN server",
+        description="Connect to a nordVPN server. If the '--server' argument "
+                    "is provided, connect to that specific server, otherwise "
+                    "select all hosts in the provided country, filter them "
+                    "by their load, and select the closest one.")
     connect_parser.add_argument('--debug', action='store_true',
-                                help='print debugging information')
+                                help='Print debugging information')
     connect_parser.add_argument('-u', '--username', type=str,
                                 required=True,
-                                help='NordVPN username')
+                                help='NordVPN account username')
     # methods of password entry
     passwd = connect_parser.add_mutually_exclusive_group(required=True)
     passwd.add_argument('-p', '--password', type=str,
-                        help='NordVPN password')
+                        help='NordVPN account password')
     passwd.add_argument('-f', '--password-file', type=argparse.FileType(),
-                        help='path to file containing NordVPN password')
+                        help='Path to file containing NordVPN password')
 
     # pre-filters on the hostlist. Either specify a country or a single host
     hosts = connect_parser.add_mutually_exclusive_group(required=True)
@@ -160,15 +170,18 @@ def parse_arguments():
         return country
 
     hosts.add_argument('country_code', type=_flag, nargs='?',
-                       help='2-letter country code')
+                       help='2-letter country code, e.g. US, GB')
     hosts.add_argument('-s', '--server',
-                       help='nordVPN host or fully qualified domain name')
+                       help='NordVPN host or fully qualified domain name, '
+                            'e.g us720, us270.nordvpn.com')
 
     # arguments to filter the resulting hostlist
     connect_parser.add_argument('--ping-timeout', type=int, default=2,
-                                help='ping wait time')
+                                help='Wait for this long for responses from '
+                                     'potential hosts')
     connect_parser.add_argument('--max-load', type=int, default=70,
-                                help='max load')
+                                help='Reject hosts that have a load greater '
+                                     'than this threshold')
 
     args = parser.parse_args()
 
