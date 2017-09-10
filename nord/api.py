@@ -21,6 +21,7 @@ all the methods provided by NordVPN.
 """
 from hashlib import sha512
 
+from structlog import get_logger
 import aiohttp
 
 from ._version import get_versions
@@ -28,6 +29,7 @@ from ._utils import async_lru_cache
 
 
 PORTS = dict(tcp=443, udp=1194)
+TRACE = 5  # custom log level
 
 
 # Low-level utilities
@@ -68,6 +70,7 @@ class Client:
             'User-Agent': f"nord/{client_version}"
         }
         self._session = aiohttp.ClientSession(raise_for_status=True)
+        self._log = get_logger(__name__)
 
     def close(self):
         """Close the underlying aiohttp.ClientSession."""
@@ -81,11 +84,13 @@ class Client:
 
     async def _get_json(self, endpoint):
         url = ''.join((self.api_url, endpoint))
+        self._log.log(TRACE, f"hitting {url} for JSON")
         async with self._session.get(url, headers=self.headers) as resp:
             return await resp.json()
 
     async def _get_text(self, endpoint):
         url = ''.join((self.api_url, endpoint))
+        self._log.log(TRACE, f"hitting {url} for text")
         async with self._session.get(url, headers=self.headers) as resp:
             return await resp.text()
 
@@ -104,8 +109,8 @@ class Client:
         """
         host = normalized_hostname(host)
         endpoint = f'files/download/{_config_filename(host, protocol)}'
+        self._log.debug(f"getting host config for {host}")
         return await self._get_text(endpoint)
-
 
     async def host_load(self, host=None):
         """Return the load on a NordVPN host.
@@ -126,6 +131,8 @@ class Client:
         if host:
             host = normalized_hostname(host)
         endpoint = f'server/stats/{host}' if host else 'server/stats'
+        self._log.debug(f"getting load for "
+                        + f"{host}" if host else "all hosts")
         resp = await self._get_json(endpoint)
         if host:
             if len(resp) != 1:
@@ -135,11 +142,10 @@ class Client:
         else:
             return {host: load['percent'] for host, load in resp.items()}
 
-
     async def current_ip(self):
         """Return our current public IP address, as detected by NordVPN."""
+        self._log.debug("getting current IP address")
         return await self._get_text('user/address')
-
 
     @async_lru_cache()
     async def host_info(self):
@@ -150,13 +156,14 @@ class Client:
         host_info : (dict: str → dict)
             A map from hostnames to host info dictionaries.
         """
+        self._log.debug("getting information on all hosts")
         info = await self._get_json('server')
         return {h['domain']: h for h in info}
-
 
     @async_lru_cache()
     async def dns_servers(self):
         """Return a list of ip addresses of NordVPN DNS servers."""
+        self._log.debug("getting DNS servers")
         return await self._get_json('dns/smart')
 
 
