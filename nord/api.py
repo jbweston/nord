@@ -19,13 +19,15 @@
 This module contains a single class, `Client`, which encapsulates
 all the methods provided by NordVPN.
 """
+from subprocess import SubprocessError
 from hashlib import sha512
+import asyncio
 
 from structlog import get_logger
 import aiohttp
 
 from ._version import get_versions
-from ._utils import async_lru_cache
+from ._utils import async_lru_cache, ping
 
 
 PORTS = dict(tcp=443, udp=1194)
@@ -201,3 +203,72 @@ class Client:
                 return False
             else:
                 raise
+
+    async def rank_hosts(self, country_code, max_load=70, ping_timeout=1):
+        """Return hosts ranked by their suitability.
+
+        First, all the NordVPN hosts are filtered to get a list of candidates,
+        then the round-trip time is calculated using 'ping', then the
+        candidates are sorted according to some scoring function.
+
+        The initial filtering is done based on the country where the host is,
+        and the max.
+
+        Parameter
+        ---------
+        country_code : str
+            2-letter country code (e.g. US for United States).
+        max_load : int, default: 70
+            An integer between 0 and 100. Hosts with a load
+            greater than this are filtered out.
+        ping_timeout : int
+            Each host will be pinged for this amount of time.
+            Larger values yield more accurate round-trip times.
+
+        Returns
+        -------
+        hosts : list of str
+            Fully qualified domain names of valid hosts, sorted by their rank.
+        """
+        country_code = country_code.upper()
+        if len(country_code) != 2 or not country_code.isalpha():
+            raise ValueError("'country_code' must be a 2-letter string")
+
+        max_load = int(max_load)
+        if max_load < 0 or max_load > 100:
+            raise ValueError("'max_load' must be an integer "
+                             "between 0 and 100")
+
+        # filter out invalid hosts
+        info = await self.host_info()
+
+        def _valid_host(info):
+            return (_openvpn_compatible(info)
+                    and info['flag'] == country_code
+                    and info['load'] < max_load)
+
+        candidates = [host for host, info in info.items()
+                      if _valid_host(info)]
+
+        # get round-trip time to valid hosts
+
+        async def _ping(host):  # pylint: disable=missing-docstring
+            try:
+                return await ping(host, ping_timeout)
+            except SubprocessError:
+                return float('inf')
+
+        self._log.info(f"pinging {len(candidates)} servers")
+        self._log.debug(f"pinging {candidates}")
+        host_rtt = await asyncio.gather(*[_ping(host) for host in candidates])
+        for host, rtt in zip(candidates, host_rtt):
+            info[host]['rtt'] = rtt
+
+        # sort by candidate score
+
+        def _score(host):
+            load, rtt = info[host]['load'], info[host]['rtt']
+            # come up with a better ranking
+            return (load / max_load) * rtt
+
+        return sorted(candidates, key=_score)
