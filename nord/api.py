@@ -65,7 +65,7 @@ class Client:
     ----------
     api_url : str, default: 'https://api.nordvpn.com'
     """
-    def __init__(self, api_url='http://api.nordvpn.com/'):
+    def __init__(self, api_url='https://api.nordvpn.com/'):
         self.api_url = api_url
         client_version = get_versions()['version'].split('+')[0]
         self.headers = {
