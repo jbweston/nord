@@ -145,7 +145,7 @@ async def require_sudo(func, *args, **kwargs):
 class maintain_sudo:  # pylint: disable=invalid-name,too-few-public-methods
     """Run 'sudo -v' every 'timeout' seconds to maintain cached credentials."""
 
-    def __init__(self, timeout=600):
+    def __init__(self, timeout=30):
         self.timeout = timeout
         self.maintainer = None
 
