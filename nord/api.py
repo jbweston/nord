@@ -20,6 +20,7 @@ This module contains a single class, `Client`, which encapsulates
 all the methods provided by NordVPN.
 """
 from subprocess import SubprocessError
+from collections import defaultdict
 from hashlib import sha512
 import asyncio
 
@@ -247,10 +248,29 @@ class Client:
                     and info['flag'] == country_code
                     and info['load'] < max_load)
 
-        candidates = [host for host, info in info.items()
+        candidates = [info for info in info.values()
                       if _valid_host(info)]
 
-        # get round-trip time to valid hosts
+        if len(candidates) == 0:
+            raise ValueError('No host meets the required criteria')
+
+        # select host from each datacenter with lowest load
+        candidates_per_location = defaultdict(lambda: dict(load=float('inf')))
+        for c in candidates:
+            loc = c['location']['lat'], c['location']['long']
+            if c['load'] < candidates_per_location[loc]['load']:
+                candidates_per_location[loc] = c
+
+        candidates = [host['domain']
+                      for host in candidates_per_location.values()]
+
+        if len(candidates) == 1:
+            return candidates
+
+        # Get round-trip time to each datacenter representative.
+        # We assume this will be equal for machines in the same
+        # datacenter, which justifies our pre-selecting only
+        # the host with the smallest load from each datacenter.
 
         async def _ping(host):
             try:
