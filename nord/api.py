@@ -252,7 +252,7 @@ class Client:
 
         # get round-trip time to valid hosts
 
-        async def _ping(host):  # pylint: disable=missing-docstring
+        async def _ping(host):
             try:
                 return await ping(host, ping_timeout)
             except SubprocessError:

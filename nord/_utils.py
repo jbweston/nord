@@ -38,15 +38,14 @@ def silence(*exceptions_to_silence):
     this is a coroutine decorator.
     """
 
-    # pylint: disable=missing-docstring
-    async def wrapper(func, *args, **kwargs):
+    async def _wrapper(func, *args, **kwargs):
         try:
             return await func(*args, **kwargs)
         except Exception as error:
             if not isinstance(error, exceptions_to_silence):
                 raise
 
-    return decorator(wrapper)
+    return decorator(_wrapper)
 
 
 class MultiError(Exception):
@@ -98,8 +97,7 @@ def async_lru_cache(size=float('inf')):
     """LRU cache for coroutines."""
     cache = OrderedDict()
 
-    # pylint: disable=missing-docstring
-    async def memoized(func, *args, **kwargs):
+    async def _memoized(func, *args, **kwargs):
         key = str((args, kwargs))
         if key not in cache:
             if len(cache) >= size:
@@ -107,7 +105,7 @@ def async_lru_cache(size=float('inf')):
             cache[key] = await func(*args, **kwargs)
         return cache[key]
 
-    return decorator(memoized)
+    return decorator(_memoized)
 
 
 def write_to_tmp(content):
@@ -155,12 +153,12 @@ class maintain_sudo:  # pylint: disable=invalid-name,too-few-public-methods
         if await sudo_requires_password():
             raise PermissionError('sudo requires password')
 
-        async def maintainer():  # pylint: disable=missing-docstring
+        async def _maintainer():
             while True:
                 await asyncio.wait([prompt_for_sudo(),
                                     asyncio.sleep(self.timeout)])
 
-        self.maintainer = asyncio.ensure_future(maintainer())
+        self.maintainer = asyncio.ensure_future(_maintainer())
 
     async def __aexit__(self, *exc_info):
         self.maintainer.cancel()
@@ -289,8 +287,7 @@ async def lock_subprocess(*args, lockfile, **kwargs):
     file.write(str(os.getpid()))  # write pid to lockfile
     file.flush()
 
-    # pylint: disable=missing-docstring
-    def unlock(*_):
+    def _unlock(*_):
         fcntl.flock(file, fcntl.LOCK_UN)
         file.truncate(0)
         file.close()
@@ -298,11 +295,11 @@ async def lock_subprocess(*args, lockfile, **kwargs):
     try:
         proc = await subprocess(*args, **kwargs)
     except:
-        unlock()
+        _unlock()
         raise
     else:
         when_dead = asyncio.ensure_future(proc.wait())
-        when_dead.add_done_callback(unlock)
+        when_dead.add_done_callback(_unlock)
 
     return proc
 
