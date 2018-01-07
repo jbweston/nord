@@ -268,7 +268,7 @@ class Client:
 
         def _score(host):
             load, rtt = info[host]['load'], info[host]['rtt']
-            # come up with a better ranking
+            # TODO: come up with a better ranking
             return (load / max_load) * rtt
 
         return sorted(candidates, key=_score)
