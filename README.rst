@@ -53,9 +53,13 @@ Usage
 
 Run ``nord --help`` for the full usage instructions.
 
-Connect to a NordVPN server::
+Connect to a specific NordVPN server::
 
     nord connect -u my_user -p my_password us893
+
+Connect to any NordVPN server in a given country::
+
+    nord connect -u my_user -p my_password US
 
 You can also supply your password from a file using the ``-f`` flag.
 The special value ``-`` means "read from stdin". This is particularly
