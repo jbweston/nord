@@ -215,8 +215,8 @@ class Client:
         The initial filtering is done based on the country where the host is,
         and the max.
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         country_code : str
             2-letter country code (e.g. US for United States).
         max_load : int, default: 70
@@ -251,7 +251,7 @@ class Client:
         candidates = [info for info in info.values()
                       if _valid_host(info)]
 
-        if len(candidates) == 0:
+        if not candidates:
             raise ValueError('No host meets the required criteria')
 
         # select host from each datacenter with lowest load
