@@ -15,11 +15,3 @@ Nord: an unofficial NordVPN client for GNU/Linux
 
    overview
    reference
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
