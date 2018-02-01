@@ -14,4 +14,5 @@ Nord: an unofficial NordVPN client for GNU/Linux
    :caption: Contents:
 
    overview
+   changelog
    reference
