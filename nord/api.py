@@ -27,7 +27,7 @@ import asyncio
 from structlog import get_logger
 import aiohttp
 
-from ._version import get_versions
+from ._version import __version__
 from ._utils import async_lru_cache, ping
 
 
@@ -68,7 +68,7 @@ class Client:
     """
     def __init__(self, api_url='https://api.nordvpn.com/'):
         self.api_url = api_url
-        client_version = get_versions()['version'].split('+')[0]
+        client_version = __version__.split('+')[0]
         self.headers = {
             'User-Agent': f"nord/{client_version}"
         }

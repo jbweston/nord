@@ -16,8 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """NordVPN client."""
 
-from . import vpn, api
+from ._version import __version__
+del _version
 
-from ._version import get_versions
-__version__ = get_versions()['version'][1:]
-del get_versions
+from . import vpn, api

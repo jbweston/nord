@@ -27,7 +27,7 @@ import structlog
 from termcolor import colored
 import aiohttp
 
-from . import api, vpn, _version
+from . import api, vpn, __version__
 from ._utils import sudo_requires_password, prompt_for_sudo, LockError
 
 
@@ -132,9 +132,8 @@ def parse_arguments():
         description='An unofficial NordVPN client')
     subparsers = parser.add_subparsers(dest='command')
 
-    version = _version.get_versions()['version']
     parser.add_argument('--version', action='version',
-                        version=f'nord {version}')
+                        version=f'nord {__version__}')
 
     subparsers.add_parser(
         'ip_address',
