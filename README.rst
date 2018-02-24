@@ -137,6 +137,7 @@ Both of these methods are explained in top-rated answers to this
 
 Developing
 ----------
+You will need Python 3.6 and Yarn_ (for the web components).
 ::
 
     git clone https://github.com/jbweston/nord
@@ -144,10 +145,20 @@ Developing
     virtualenv -p python3.6
     source venv/bin/activate
     pip install -e .[dev]
+    yarn install
 
 Periodically check your code with the linter::
 
     pylint nord
+
+Web components
+**************
+When developing the web frontend you can execute the following command
+to run an auto-reloading web server::
+
+    yarn dev
+
+.. _Yarn: https://yarnpkg.com/en/docs/install
 
 Building the API documentation
 ******************************

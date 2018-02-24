@@ -4,3 +4,5 @@ docs/build
 dist/
 build/
 venv/
+node_modules/
+nord/web/static/
