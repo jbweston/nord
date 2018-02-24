@@ -17,6 +17,6 @@
 """NordVPN client."""
 
 from ._version import __version__
-del _version
+del _version  # pylint: disable=undefined-variable
 
 from . import vpn, api

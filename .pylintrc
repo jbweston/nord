@@ -1,4 +1,4 @@
 [MASTER]
-ignore=_version.py
+ignore=_version.py,_static_version.py
 [MESSAGES CONTROL]
 disable=broad-except

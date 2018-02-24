@@ -145,6 +145,10 @@ Developing
     source venv/bin/activate
     pip install -e .[dev]
 
+Periodically check your code with the linter::
+
+    pylint nord
+
 Building the API documentation
 ******************************
 ::
