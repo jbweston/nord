@@ -16,10 +16,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
 from setuptools import setup
 
 import versioneer
 
+
+if sys.version_info < (3, 6):
+    print('nord requires Python 3.6 or above.')
+    sys.exit(1)
 
 requirements = [
     'decorator',
