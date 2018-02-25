@@ -20,6 +20,7 @@ from os.path import abspath, dirname
 
 from aiohttp import web
 
+from .api import handler
 
 STATIC_FOLDER_PATH = os.path.join(abspath(dirname(__file__)), 'static')
 
@@ -30,9 +31,11 @@ async def index(request):
 app = web.Application()
 
 app.router.add_get('/', index)
+app.router.add_get('/api', handler)
 app.router.add_static('/', path=STATIC_FOLDER_PATH, name='static')
 
-app['websockets'] = set()
+app['peers'] = set()
+
 
 def get_app(*args):
     return app

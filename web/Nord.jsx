@@ -45,13 +45,41 @@ class Nord extends React.Component {
   constructor(props) {
     super(props) ;
     this.state = {
+        enabled: false,
+        loading: true,
         status: VPN.disconnected,
         country: null,
         host: null,
     } ;
+    this.connection = null
 
     this.connect = this.connect.bind(this) ;
     this.disconnect = this.disconnect.bind(this) ;
+    this.handleData = this.handleData.bind(this) ;
+  }
+
+  componentDidMount() {
+    this.setState({enabled: false, loading: true})
+    this.connection = new WebSocket('ws://127.0.0.1:5000/api') ;
+    this.connection.onopen = () =>
+      this.setState({enabled: true, loading: false}) ;
+    this.connection.onerror = () =>
+      this.setState({enabled: false, loading: false}) ;
+    this.connection.onclose = () =>
+      this.setState({enabled: false, loading: false}) ;
+    this.connection.onmessage = this.handleData ;
+  }
+
+  handleData(msg) {
+    msg = JSON.parse(msg.data)
+    switch(msg.state) {
+      case "connected":
+        this.setState({status: VPN.connected, host: msg.host}) ;
+        break ;
+      case "disconnected":
+        this.setState({status: VPN.disconnected}) ;
+        break ;
+    }
   }
 
   connect(geography) {
@@ -61,23 +89,19 @@ class Nord extends React.Component {
         country: country_info.NAME,
         host: null,
     }) ;
-    // TODO: add API call to connect to VPN and remove this stub
-    setTimeout((prev) => (
-      this.setState({
-        ...prev,
-        status: VPN.connected,
-        host: country_info.ISO_A2.toLowerCase() + "#123",
-      })), 5000) ;
+
+    this.connection.send(JSON.stringify({
+      method: 'connect',
+      country: country_info.ISO_A2
+    })) ;
   }
 
   disconnect() {
     this.setState((prev) => ({ ...prev, status: VPN.disconnecting })) ;
-    // TODO: add API call to disconnect from VPN and remove this stub
-    setTimeout((prev) => (
-      this.setState({
-        ...prev,
-        status: VPN.disconnected,
-      })), 2000) ;
+
+    this.connection.send(JSON.stringify({
+      method: 'disconnect'
+    })) ;
   }
 
   render() {
@@ -152,6 +176,11 @@ const VPNStatus = (props) => {
                 <DisconnectButton/>
               </div>) ;
       break ;
+  }
+
+  if (!connection.enabled && !connection.loading) {
+    color = "is-danger"
+    text = <div style={style}>Lost connection to server</div>
   }
 
   const classes = "hero is-primary has-text-centered " + color
