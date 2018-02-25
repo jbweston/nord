@@ -40,7 +40,11 @@ Licence
 Nord is licensed under the terms of the GNU GPLv3.
 See the LICENSE_ file for details.
 
+The file ``web/static/world.geo.json`` is Copyright (c) 2017 Richard Zimmerman
+and is included here under the conditions of the `MIT License`_
+
 .. _LICENSE: LICENSE
+.. _MIT License: web/static/LICENSE
 
 Installation
 ------------

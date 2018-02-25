@@ -25,10 +25,17 @@ module.exports = {
                     presets: ['es2015', 'react', 'stage-3']
                 }
             },
+            { test: /\.css$/,use: ['style-loader', 'css-loader'] },
+            { test: /\.(png|jpg|gif)$/, loader: "file-loader" },
+            { test: /\.(woff(2)?|ttf|eot|svg|otf)(\?v=\d+\.\d+\.\d+)?$/, loader: "file-loader" },
+            { test: /LICENSE/, loader: 'file-loader' },
             {
-                test: /\.css/,
-                use: ['style-loader', 'css-loader']
-            }
+                test: /\.geo\.json/,
+                loader: 'file-loader',
+                options: {
+                  name: '[name].[ext]'
+                }
+            },
         ]
     }
 } ;
