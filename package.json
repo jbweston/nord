@@ -6,7 +6,7 @@
   "license": "GPL-3.0",
   "scripts": {
     "build": "webpack -p",
-    "dev": "webpack-dev-server --hot --inline --progress --watch"
+    "dev": "concurrently --kill-others --names 'WEBPACK,PYTHON' --prefix-colors 'bgBlue.bold,bgGreen.bold' 'webpack-dev-server --hot --inline --progress --config webpack.dev.js' 'python -m aiohttp.web -P 5000 nord.web:get_app'"
   },
   "devDependencies": {
     "babel-core": "^6.26.0",
@@ -17,13 +17,15 @@
     "babel-preset-react": "^6.24.1",
     "babel-preset-stage-3": "^6.24.1",
     "babel-runtime": "^6.26.0",
+    "concurrently": "^3.5.1",
     "css-loader": "^0.28.10",
     "file-loader": "^1.1.9",
     "html-webpack-plugin": "^2.30.1",
     "style-loader": "^0.20.2",
     "transform-runtime": "^0.0.0",
     "webpack": "^3.11.0",
-    "webpack-dev-server": "^2.11.1"
+    "webpack-dev-server": "^2.11.1",
+    "webpack-merge": "^4.1.2"
   },
   "dependencies": {
     "bulma": "^0.6.2",
