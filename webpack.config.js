@@ -28,7 +28,7 @@ module.exports = {
             { test: /\.css$/,use: ['style-loader', 'css-loader'] },
             { test: /\.(png|jpg|gif)$/, loader: "file-loader" },
             { test: /\.(woff(2)?|ttf|eot|svg|otf)(\?v=\d+\.\d+\.\d+)?$/, loader: "file-loader" },
-            { test: /LICENSE/, loader: 'file-loader' },
+            { test: /LICENSE/, loader: 'file-loader', options: { name: '[name]'} },
             {
                 test: /\.geo\.json/,
                 loader: 'file-loader',

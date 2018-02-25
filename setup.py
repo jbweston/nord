@@ -17,7 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 if sys.version_info < (3, 6):
@@ -67,6 +67,16 @@ def get_version_and_cmdclass(package_name):
 version, cmdclass = get_version_and_cmdclass('nord')
 
 
+class sdist(cmdclass['sdist']):
+    def run(self):
+        import subprocess
+        subprocess.check_call(['yarn', 'install'])
+        subprocess.check_call(['yarn', 'build'])
+        super().run()
+
+
+cmdclass.update(dict(sdist=sdist))
+
 setup(
     name='nord',
     author='Joseph Weston',
@@ -77,7 +87,7 @@ setup(
     url='https://github.com/jbweston/nord',
     cmdclass=cmdclass,
     platforms=['GNU/Linux'],
-    packages=['nord'],
+    packages=find_packages('.'),
     long_description=long_description,
     install_requires=requirements,
     extras_require={
@@ -87,4 +97,6 @@ setup(
         [console_scripts]
         nord=nord.cli:main
     ''',
+    package_data={'nord.web': ['static/*']},
+    include_package_data=True,
 )
