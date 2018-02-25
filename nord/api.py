@@ -75,15 +75,15 @@ class Client:
         self._session = aiohttp.ClientSession(raise_for_status=True)
         self._log = get_logger(__name__)
 
-    def close(self):
+    async def close(self):
         """Close the underlying aiohttp.ClientSession."""
-        self._session.close()
+        await self._session.close()
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_typ, exc, traceback):
-        self.close()
+        await self.close()
 
     async def _get_json(self, endpoint):
         url = ''.join((self.api_url, endpoint))

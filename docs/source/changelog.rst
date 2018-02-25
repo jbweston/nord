@@ -1,5 +1,10 @@
 Changelog
 =========
+v0.3.0
+------
++ Fix a bug where an exception would be raised when incorrect credentials are
+  provided to the CLI
+
 v0.2.0 | 2018-02-01
 -------------------
 + Improve help messages in CLI
