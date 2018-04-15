@@ -65,6 +65,11 @@ Connect to any NordVPN server in a given country::
 
     nord connect -u my_user -p my_password US
 
+Serve a web app that allows you to select the country to
+which you wish to connect::
+
+    nord web -u my_user -p my_password
+
 You can also supply your password from a file using the ``-f`` flag.
 The special value ``-`` means "read from stdin". This is particularly
 useful when your password is stored in a utility such as
