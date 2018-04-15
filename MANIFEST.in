@@ -1,2 +1,2 @@
 include LICENSE
-include-recursive nord/web/static/*
+recursive-include nord/web/static/ *
