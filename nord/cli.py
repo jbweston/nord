@@ -92,28 +92,9 @@ def render_logs(logger, _, event):
 
 def setup_logging(args):
     """Set up logging."""
-    structlog.configure(
-        processors=[
-            structlog.stdlib.filter_by_level,
-            structlog.stdlib.add_logger_name,
-            structlog.stdlib.add_log_level,
-            structlog.processors.TimeStamper(fmt="%x:%X", utc=False),
-            structlog.processors.UnicodeDecoder(),
-            render_logs,
-        ],
-        context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
-    )
+    cfg = structlog.get_config()
+    cfg['processors'].append(render_logs)
 
-    # set up stdlib logging to be the most permissive, structlog
-    # will handle all filtering and formatting
-    # pylint: disable=protected-access
-    structlog.stdlib.TRACE = 5
-    structlog.stdlib._NAME_TO_LEVEL['trace'] = 5
-    structlog.stdlib._LEVEL_TO_NAME[5] = 'trace'
-    logging.addLevelName(5, "TRACE")
     logging.basicConfig(
         stream=sys.stdout,
         level=(logging.DEBUG if hasattr(args, 'debug') and args.debug
