@@ -22,12 +22,15 @@ import signal
 import logging
 import argparse
 import asyncio
+import ipaddress
 
 import structlog
 from termcolor import colored
 import aiohttp
+import aiohttp.web
 
 from . import api, vpn, __version__
+from . import web as nord_web
 from ._utils import sudo_requires_password, prompt_for_sudo, LockError
 
 
@@ -163,6 +166,29 @@ def parse_arguments():
                                 help='Reject hosts that have a load greater '
                                      'than this threshold')
 
+    web_parser = subparsers.add_parser(
+        'web',
+        help="Run nord as a web app",
+        description="Serve a web app that provides a GUI for selecting the "
+                    "country to connect to.")
+
+    web_parser.add_argument('--debug', action='store_true',
+                            help='Print debugging information')
+    web_parser.add_argument('-u', '--username', type=str,
+                            required=True,
+                            help='NordVPN account username')
+    web_parser.add_argument('-P', '--port', type=int, default=8000,
+                            help='Port on which to run the web app')
+    web_parser.add_argument('-H', '--host', type=ipaddress.ip_address,
+                            default='127.0.0.1',
+                            help='IP address on which to run the web app')
+    # methods of password entry
+    passwd = web_parser.add_mutually_exclusive_group(required=True)
+    passwd.add_argument('-p', '--password', type=str,
+                        help='NordVPN account password')
+    passwd.add_argument('-f', '--password-file', type=argparse.FileType(),
+                        help='Path to file containing NordVPN password')
+
     args = parser.parse_args()
 
     if not args.command:
@@ -216,6 +242,44 @@ async def connect(args):
                     'of nord running?')
     except vpn.OpenVPNError as error:
         raise Abort(str(error))
+
+
+async def web(args):
+    """Run nord as a web app"""
+
+    username = args.username
+    password = args.password or args.password_file.readline().strip()
+
+    # Group requests together to reduce overall latency
+    async with api.Client() as client:
+        output = await asyncio.gather(
+            client.valid_credentials(username, password),
+            sudo_requires_password(),
+        )
+        valid_credentials, require_sudo = output
+
+        if not valid_credentials:
+            raise Abort('invalid username/password combination')
+
+        if require_sudo:
+            print('sudo password required for OpenVPN')
+            try:
+                await prompt_for_sudo()
+            except PermissionError:
+                # 'sudo' will already have notified the user about the failure
+                raise Abort()
+
+        app = nord_web.init_app(client, (username, password))
+        runner = aiohttp.web.AppRunner(app, handle_signals=True)
+        await runner.setup()
+        site = aiohttp.web.TCPSite(runner, str(args.host), args.port)
+        await site.start()
+        print(colored(f'=== Listening {args.host}:{args.port} ===',
+                      color='white', attrs=['bold']))
+        try:
+            await app['shutdown_signal'].wait()
+        finally:
+            await runner.cleanup()
 
 
 async def _get_host_and_config(client, args):
