@@ -15,7 +15,7 @@
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 import React from 'react' ;
-import {SlideDown} from 'react-slidedown'
+import AnimateHeight from 'react-animate-height'
 import Spinner from 'react-spinkit'
 import {
   ComposableMap,
@@ -24,8 +24,8 @@ import {
   Geography,
 } from "react-simple-maps"
 
-import 'bulma/css/bulma.css' ;
-import 'react-slidedown/lib/slidedown.css'
+import 'normalize.css/normalize.css'
+import './static/styles.css'
 
 // Import licence for GEOJSON so as to include it into the webpack output.
 // This is necessary to avoid violating the license terms.
@@ -38,6 +38,7 @@ const VPN = Object.freeze({
   connecting:2,
   connected:3,
   disconnecting: 4,
+  error: 5,
 }) ;
 
 class Nord extends React.Component {
@@ -50,17 +51,37 @@ class Nord extends React.Component {
         status: VPN.disconnected,
         country: null,
         host: null,
+        viewportWidth: null,
     } ;
     this.connection = null
 
+
     this.connect = this.connect.bind(this) ;
+    this.updateDimensions = this.updateDimensions.bind(this) ;
     this.disconnect = this.disconnect.bind(this) ;
     this.handleData = this.handleData.bind(this) ;
   }
 
+  updateDimensions() {
+    this.setState({
+      viewportWidth: Math.max(document.documentElement.clientWidth,
+                              window.innerWidth || 0)
+    }) ;
+  }
+
+  componentWillMount() {
+    this.updateDimensions() ;
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("resize", this.updateDimensions) ;
+  }
+
   componentDidMount() {
+    const upstream = location.hostname+(location.port ? ':'+location.port : '')
+    window.addEventListener("resize", this.updateDimensions) ;
     this.setState({enabled: false, loading: true})
-    this.connection = new WebSocket('ws://127.0.0.1:5000/api') ;
+    this.connection = new WebSocket('ws://'+upstream+'/api') ;
     this.connection.onopen = () =>
       this.setState({enabled: true, loading: false}) ;
     this.connection.onerror = () =>
@@ -74,21 +95,44 @@ class Nord extends React.Component {
     msg = JSON.parse(msg.data)
     switch(msg.state) {
       case "connected":
-        this.setState({status: VPN.connected, host: msg.host}) ;
+        this.setState({
+            status: VPN.connected,
+            host: msg.host
+        }) ;
         break ;
       case "disconnected":
-        this.setState({status: VPN.disconnected}) ;
+        this.setState({
+            status: VPN.disconnected
+        }) ;
+        break ;
+      case "connecting":
+        this.setState({
+            status: VPN.connecting,
+            country: msg.country,
+            host: null,
+        }) ;
+        break ;
+      case "disconnecting":
+        this.setState({
+            status: VPN.disconnecting,
+        }) ;
+        break ;
+      case "error":
+        this.setState({
+            status: VPN.error,
+            error_message: msg.message
+        }) ;
         break ;
     }
   }
 
   connect(geography) {
     const country_info = geography.properties ;
-    this.setState({
-        status: VPN.connecting,
-        country: country_info.NAME,
-        host: null,
-    }) ;
+//    this.setState({
+//        status: VPN.connecting,
+//        country: country_info.NAME,
+//        host: null,
+//    }) ;
 
     this.connection.send(JSON.stringify({
       method: 'connect',
@@ -97,7 +141,7 @@ class Nord extends React.Component {
   }
 
   disconnect() {
-    this.setState((prev) => ({ ...prev, status: VPN.disconnecting })) ;
+//    this.setState((prev) => ({ ...prev, status: VPN.disconnecting })) ;
 
     this.connection.send(JSON.stringify({
       method: 'disconnect'
@@ -106,11 +150,15 @@ class Nord extends React.Component {
 
   render() {
     return (
-      <div>
-        <Title/>
-        <VPNStatus connection={ this.state }
-                   onDisconnect={ this.disconnect }/>
-        <WorldMap onClick={ this.connect }/>
+      <div id="grid">
+        <Title className="full-width"/>
+        <section className="clip">
+          <VPNStatus connection={ this.state }
+                     onDisconnect={ this.disconnect }
+                     className="full-width overlap"/>
+          <WorldMap onClick={ this.connect }
+                    viewportWidth={ this.state.viewportWidth }/>
+        </section>
       </div>
     ) ;
   }
@@ -118,91 +166,98 @@ class Nord extends React.Component {
 }
 
 
-const Title = () => (
-  <section className="hero is-primary is-info has-text-centered">
-      <div className="container">
-        <div className="is-size-1">
-          Nord
-        </div>
-      </div>
-  </section>
-) ;
+const Title = (props) => {
+  return (
+    <section id="title" className={props.className}>
+    <h1 className="no-margin">Nord</h1>
+    </section>
+  ) ;
+} ;
 
+
+const ConnectionSpinner = () => {
+  return (
+    <div>
+      <div className="connection-spinner">
+        <Spinner name="double-bounce" fadeIn="none" />
+      </div>
+    </div>
+  ) ;
+} ;
+
+const DisconnectButton = (props) => {
+  const onClick = props.connected ? props.onDisconnect : null ;
+  const content = props.connected ? "Disconnect" : <ConnectionSpinner/> ;
+  return (
+    <div className="disconnect-button-wrapper">
+      <button className="disconnect-button red" onClick={ onClick }>
+        { content }
+      </button>
+  </div>
+  ) ;
+} ;
 
 const VPNStatus = (props) => {
   const connection = props.connection ;
 
-  const ConnectionSpinner = () => (
-    <div style={{"display": "inline-block", "margin-bottom": "-5px"}}>
-      <Spinner name="double-bounce" />
-    </div>
-  ) ;
-
-  const DisconnectButton = () => {
-    var classes = "button is-danger " ;
-    if (connection.status == VPN.disconnecting) {
-      classes += "is-loading"
-    }
-    return (
-      <button className={classes} onClick={ props.onDisconnect }>
-        Disconnect
-      </button>
-    ) ;
-  }
-
-  const style = {"margin-right": "10px", display: "inline"} ;
   var color = "" ;
-  var text = "" ;
+  var content = null
 
-  switch(props.connection.status) {
-    case VPN.disconnected:
-      break ;
+  switch(connection.status) {
     case VPN.connecting:
-      color = "is-warning" ;
-      text = <div>
-              <div style={style}>
-                Connecting to servers in {connection.country}
-              </div>
-              <ConnectionSpinner/>
-            </div>
+      color = "yellow" ;
+      content = <div>
+                  Connecting to servers in <b>{ connection.country }</b>
+                  <ConnectionSpinner/>
+             </div>;
       break ;
     case VPN.connected:
     case VPN.disconnecting:
-      color = "is-success" ;
-      text = (<div>
-                <div style={style}>
-                  Connected to {connection.host}
-                </div>
-                <DisconnectButton/>
-              </div>) ;
+    case VPN.disconnected:
+      color = "green" ;
+      content = <div>
+                  Connected to <b>{ connection.host }</b>
+                  <DisconnectButton
+                    connected={ connection.status == VPN.connected }
+                    onDisconnect={ props.onDisconnect }/>
+               </div> ;
       break ;
+    case VPN.error:
+      color = "red" ;
+      content = <div>Error on backend: {connection.error_message}</div> ;
   }
 
   if (!connection.enabled && !connection.loading) {
-    color = "is-danger"
-    text = <div style={style}>Lost connection to server</div>
+    color = "red" ;
+    content = <div>Lost connection to backend</div> ;
   }
 
-  const classes = "hero is-primary has-text-centered " + color
-
   return (
-    <SlideDown>
-      <section className={classes}>
-          <div className="container">
-            <div className="is-size-4">
-              {text}
-            </div>
+      <AnimateHeight
+          className={props.className}
+          duration={ 500 }
+          height={ connection.status == VPN.disconnected ? '0' : 'auto'}>
+          <div className={"padded " + color}>
+            {content}
           </div>
-      </section>
-    </SlideDown>
+      </AnimateHeight>
   ) ;
 } ;
 
 
 const WorldMap = (props) => {
 
-  const zoom = 2 ;
-  const center = [ 0, 30 ] ;
+  var zoom = 7 ;
+  var center = [ 5, 65 ] ;
+  if (props.viewportWidth > 500) {
+    zoom = 4 ;
+    center = [5, 50]
+  }
+  if (props.viewportWidth > 1000) {
+    zoom = 2 ;
+  }
+
+
   const default_map_style = {
     fill: "#ECEFF1",
     stroke: "#607D8B",
@@ -211,7 +266,7 @@ const WorldMap = (props) => {
   } ;
   const map_container_style = {
     width: "100%",
-    height: "auto",
+    height: "100%",
   } ;
   const map_style = {
     default: default_map_style,
