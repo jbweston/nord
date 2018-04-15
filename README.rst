@@ -40,7 +40,11 @@ Licence
 Nord is licensed under the terms of the GNU GPLv3.
 See the LICENSE_ file for details.
 
+The file ``web/static/world.geo.json`` is Copyright (c) 2017 Richard Zimmerman
+and is included here under the conditions of the `MIT License`_
+
 .. _LICENSE: LICENSE
+.. _MIT License: web/static/LICENSE
 
 Installation
 ------------
@@ -137,6 +141,7 @@ Both of these methods are explained in top-rated answers to this
 
 Developing
 ----------
+You will need Python 3.6 and Yarn_ (for the web components).
 ::
 
     git clone https://github.com/jbweston/nord
@@ -144,10 +149,20 @@ Developing
     virtualenv -p python3.6
     source venv/bin/activate
     pip install -e .[dev]
+    yarn install
 
 Periodically check your code with the linter::
 
     pylint nord
+
+Web components
+**************
+When developing the web frontend you can execute the following command
+to run an auto-reloading web server::
+
+    yarn dev
+
+.. _Yarn: https://yarnpkg.com/en/docs/install
 
 Building the API documentation
 ******************************

@@ -165,6 +165,33 @@ async def supervise(proc):
 
 
 @require_sudo
+async def supervise_with_context(proc, dns_servers=()):
+    """Supervise an OpenVPN client until it dies and return the exit code.
+
+    Optionally provide DNS servers that will replace the contents
+    of '/etc/resolv.conf' for the duration of the client.
+
+    Parameters
+    ----------
+    proc : asyncio.Task
+        The OpenVPN process to supervise
+    dns_servers : tuple of str, optional
+        IP addresses of DNS servers with which to populate
+        '/etc/resolv.conv' when the VPN is up.
+    """
+    # While OpenVPN is running we need to maintain the cached sudo
+    # credentials, otherwise they will time out after 15 minutes or so
+    # and we will not be able to kill the OpenVPN process.
+    context = [maintain_sudo()]
+    if dns_servers:
+        dns_servers = ['nameserver ' + server for server in dns_servers]
+        context.append(replace_content_as_root('/etc/resolv.conf',
+                                               '\n'.join(dns_servers)))
+    async with multi_context(*context):
+        return await supervise(proc)
+
+
+@require_sudo
 async def run(config, username, password, dns_servers=()):
     """Run an OpenVPN client until it dies and return the exit code.
 
@@ -181,15 +208,5 @@ async def run(config, username, password, dns_servers=()):
         IP addresses of DNS servers with which to populate
         '/etc/resolv.conv' when the VPN is up.
     """
-    # While OpenVPN is running we need to maintain the cached sudo
-    # credentials, otherwise they will time out after 15 minutes or so
-    # and we will not be able to kill the OpenVPN process.
-    context = [maintain_sudo()]
-    if dns_servers:
-        dns_servers = ['nameserver ' + server for server in dns_servers]
-        context.append(replace_content_as_root('/etc/resolv.conf',
-                                               '\n'.join(dns_servers)))
-
-    async with multi_context(*context):
-        proc = await start(config, username, password)
-        return await supervise(proc)
+    proc = await start(config, username, password)
+    return await supervise_with_context(proc, dns_servers)
