@@ -26,7 +26,7 @@ if sys.version_info < (3, 6):
 
 requirements = [
     'decorator',
-    'structlog',
+    'structlog>=18.1',
     'aiohttp>=3.0',
     'termcolor',
 ]
