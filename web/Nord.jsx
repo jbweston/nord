@@ -127,22 +127,13 @@ class Nord extends React.Component {
   }
 
   connect(geography) {
-    const country_info = geography.properties ;
-//    this.setState({
-//        status: VPN.connecting,
-//        country: country_info.NAME,
-//        host: null,
-//    }) ;
-
     this.connection.send(JSON.stringify({
       method: 'connect',
-      country: country_info.ISO_A2
+      country: geography.properties.ISO_A2
     })) ;
   }
 
   disconnect() {
-//    this.setState((prev) => ({ ...prev, status: VPN.disconnecting })) ;
-
     this.connection.send(JSON.stringify({
       method: 'disconnect'
     })) ;
