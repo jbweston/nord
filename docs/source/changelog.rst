@@ -2,6 +2,7 @@ Changelog
 =========
 v0.3.0
 ------
++ Implement Web frontend for interacting with Nord VPN servers
 + Fix a bug where an exception would be raised when incorrect credentials are
   provided to the CLI
 
