@@ -6,7 +6,7 @@
   "license": "GPL-3.0",
   "scripts": {
     "build": "webpack -p",
-    "dev": "concurrently --kill-others --names 'WEBPACK,PYTHON' --prefix-colors 'bgBlue.bold,bgGreen.bold' 'webpack-dev-server --hot --inline --progress --config webpack.dev.js' 'python -m aiohttp.web -P 5000 nord.web:get_app'"
+    "dev": "concurrently --kill-others --names 'WEBPACK,PYTHON' --prefix-colors 'bgBlue.bold,bgGreen.bold' 'webpack-dev-server --hot --inline --progress --config webpack.dev.js' 'python -m aiohttp.web -P 5000 nord.web:init_app'"
   },
   "devDependencies": {
     "babel-core": "^6.26.0",
