@@ -270,7 +270,7 @@ async def web(args):
                 raise Abort()
 
         app = nord_web.init_app(client, (username, password))
-        runner = aiohttp.web.AppRunner(app, handle_signals=True)
+        runner = aiohttp.web.AppRunner(app)
         await runner.setup()
         site = aiohttp.web.TCPSite(runner, str(args.host), args.port)
         await site.start()
