@@ -7,3 +7,4 @@ API documentation
 
    reference/api.rst
    reference/vpn.rst
+   reference/web.rst

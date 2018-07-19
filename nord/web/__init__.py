@@ -16,11 +16,7 @@
 # along with this program.  if not, see <http://www.gnu.org/licenses/>.
 """Serve nord as a web app.
 
-To use this package as a library, simply instantiate an instance of the
-app with `init_app`.
-
 The API can be accessed by opening a websocket connection to '/api'.
-
 
 Requests
 ========
