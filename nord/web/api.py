@@ -67,6 +67,8 @@ async def _run_vpn(connect_vpn, send_peers, on_shutdown, queue, log):
                 country = message['country']
                 log.info('VPN connect', country=country)
                 await send_peers(state='connecting', country=country)
+                await _stop(vpn_task)
+                vpn_task = None
                 host, vpn_task = await connect_vpn(country)
                 await send_peers(state='connected', host=host)
             elif message['method'] == 'disconnect':
