@@ -18,6 +18,8 @@ Nord: an unofficial NordVPN client
 .. badges-end
 .. doc-start
 
+**DEPRECATION NOTICE: This repository will no longer be actively worked on now that NordVPN has an official Linux client: https://support.nordvpn.com/Connectivity/Linux/**
+
 Overview
 --------
 
